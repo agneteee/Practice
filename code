@@ -1,0 +1,201 @@
+# ANTIHELMINTINIAI ----------------------------------------
+# Susidaroma laiko eilute:
+Antihelmintiniai <- pard[pard$grupe=="Antihelmintiniai", ]
+a15 <- Antihelmintiniai[Antihelmintiniai$metai=="2015",]
+a15 <- aggregate(a15$suma, list(a15$men), sum)
+a16 <- Antihelmintiniai[Antihelmintiniai$metai=="2016",]
+a16 <- aggregate(a16$suma, list(a16$men), sum)
+A <- c(a15[,2], a16[,2])
+A <- ts(A)
+# Pagrindines skaitines charakteristikos:
+data.frame(Minimumas=min(A),Maksimumas=max(A),Vidurkis=mean(A),
+Mediana=median(A),dispersija=var(A))
+# Pradines laiko eilutes grafikas:
+pdf("antihelmintiniaiplot.pdf",paper=’special’, width = 10, height = 6)
+plot(A, type = "l", ylab="Suma", xlab="Menesis", ylim=c(2000, 7000),
+frame.plot = FALSE, xaxt="n")
+axis(side = 1, at=1:24)
+dev.off()
+# Tikrinamas pradines laiko eilutes stacionarumas:
+adf.test(A, alternative = "stationary") # nestacionaru
+# Sukuriamas trendo modelis:
+n <- 34
+t <- 1:n
+t0 <- 10
+a1 <- rep(1, n)
+b1 <- pmin(t,t0)
+b2 <- pmax(0, t-t0)
+Z <- cbind(a1, b1, b2)
+X <- data.frame(Z[1:24,]) #plano matrica
+Xn <- data.frame(Z[25:n,])
+Y <- A
+duomenys <- data.frame(Y,X)
+trendas <- lm(Y~0+a1+b1+b2, data=duomenys)
+# Sukurtas trendas:
+summary(trendas)
+T <- fitted(trendas)
+# Pratesiamas trendas:
+Yp <- as.matrix(Xn)%*%as.matrix(coef(trendas))
+pdf("lauzte.pdf",paper=’special’, width = 10, height = 6)
+plot(A, type = "l", ylab="Suma", xlab="Menesis",
+frame.plot = FALSE, xaxt="n", ylim=c(2000, 7000))
+axis(side = 1, at=1:34)
+lines(T)
+dev.off()
+# Pašalinamas trenda iš laiko eilutes ir vel patikrinamas
+# stacionarumas:
+adf.test(A-T) # nestacionaru
+# Nauja eilute tampa stacionari du kart ja diferencijavus:
+adf.test(diff(A, differences = 2))
+B <- diff(A-T, differences = 2)
+# Stacionarios laiko eilutes grafikas:
+pdf("betrendo.pdf",paper=’special’, width = 10, height = 6)
+plot(B, type = "l", ylab="Suma", xlab="Menesis",
+frame.plot = FALSE, xaxt="n")
+axis(side = 1, at=1:24)
+dev.off()
+# ACF ir PACF grafikai:
+pdf("acfpacf1.pdf",paper=’special’, width = 10, height = 6)
+par(mfrow=c(2,1))
+acf(B, main="Autokoreliacijos grafikas")
+pacf(B, main="Dalines autokoreliacijos grafikas")
+dev.off()
+# ARIMA MODELIS
+ARMA.modelis <- arima(A-T, order=c(2,2,2))
+ARMA.prognoze <- predict(ARMA.modelis, n.ahead=10)
+ARMA.prognoze
+ARMA.modelis
+# PROGNOZAVIMAS
+X.pr <- ARMA.prognoze$pred
+X.se <- ARMA.prognoze$se
+X.v <- X.pr+1.96*X.se
+X.a <- X.pr-1.96*X.se
+# PRGONOZES GRAFIKAS
+pdf("forecastA.pdf",paper=’special’, width = 10, height = 6)
+plot(A, type="l",xlim=c(0,34), ylim = c(0, 10000),
+frame.plot = FALSE, xlab="Menesis", ylab="Suma")
+lines(X.pr+Yp, type="l", pch=19, lw=2, col="blue")
+lines(X.v+Yp, col="lightblue", lw=10)
+lines(X.a+Yp, col="lightblue", lw=10)
+lines(T)
+lines(Yp, x=25:n)
+dev.off()
+# Diagnostiniai paklaidu grafikai:
+pdf("tsdiag1.pdf",paper=’special’, width = 10, height = 8)
+tsdiag(ARMA.modelis)
+dev.off()
+# DEZINFEKCIJA ----------------------------------------
+# Sudaroma laiko eilute:
+levels(pard$grupe)
+Dezinfekcija <- pard[pard$grupe=="Dezinfekcija", ]
+a15 <- Dezinfekcija[Dezinfekcija$metai=="2015",]
+a15 <- aggregate(a15$suma, list(a15$men), sum)
+a16 <- Dezinfekcija[Dezinfekcija$metai=="2016",]
+a16 <- aggregate(a16$suma, list(a16$men), sum)
+A <- c(a15[,2], a16[,2])
+A <- ts(A)
+# Pagrindines skaitines charakteristikos:
+data.frame(Minimumas=min(A),Maksimumas=max(A),Vidurkis=mean(A),
+Mediana=median(A),dispersija=var(A))
+# Pradines laiko eilutes grafikas:
+pdf("dezinfekcijaplot.png",paper=’special’, width = 10, height = 6)
+plot(A, type = "l", ylab="Suma", xlab="Menesis",
+frame.plot = FALSE, xaxt="n", ylim=c(0,10000))
+axis(side = 1, at=1:24)
+dev.off()
+# Tikrinamas laiko eilutes stacionarumas:
+adf.test(A, alternative = "stationary") # stacionaru
+# Braižomi ACF ir PACF grafikai:
+pdf("acfpacf2.pdf",paper=’special’, width = 10, height = 6)
+par(mfrow=c(2,1))
+acf(A, main="Autokoreliacijos grafikas")
+pacf(A, main="Dalines autokoreliacijos grafikas")
+dev.off()
+# ARIMA modelis:
+t <- 1:24
+ARMA.modelis <- arima(A, order=c(0,0,0))
+ARMA.prognoze <- predict(ARMA.modelis, n.ahead=10)
+ARMA.prognoze
+# Laiko eilutes ir jos prognozes grafikas:
+pdf("forecastdez.pdf",paper=’special’, width = 10, height = 6)
+par(mfrow=c(1,1))
+plot(forecast(ARMA.modelis), frame.plot=FALSE)
+dev.off()
+# Braižomi diagnostiniai paklaidu grafikai:
+pdf("tsdiagdez1.pdf",paper=’special’, width = 10, height = 8)
+tsdiag(ARMA.modelis)
+dev.off()
+# AUTOMATINIS MODELIO PARINKIMAS.
+auto.arima(A ,seasonal=FALSE)
+# SMULKIEM GYVUNAM ----------------------------------------
+# Sudaroma laiko eilute:
+levels(pard$grupe)
+sg <- pard[pard$grupe=="Smulkiem gyvunam", ]
+a15 <- sg[sg$metai=="2015",]
+a15 <- aggregate(a15$suma, list(a15$men), sum)
+a16 <- sg[sg$metai=="2016",]
+a16 <- aggregate(a16$suma, list(a16$men), sum)
+A <- c(a15[,2], a16[,2])
+A <- ts(A)
+# Pagrindines skaitines charakteristikos:
+data.frame(Minimumas=min(A),Maksimumas=max(A),Vidurkis=mean(A),
+Mediana=median(A),dispersija=var(A))
+# Pradines laiko eilutes grafikas:
+plot(A, type = "l", ylab="Suma", xlab="Menesis",
+frame.plot = FALSE, xaxt="n", ylim=c(0,10000))
+axis(side = 1, at=1:24)
+# Tikrinamas laiko eilutes stacionarumas:
+adf.test(A, alternative = "stationary") # stacionaru
+# Braižomi ACF ir PACF grafikai:
+par(mfrow=c(2,1))
+acf(A, main="Autokoreliacijos grafikas")
+pacf(A, main="Dalines autokoreliacijos grafikas")
+# ARIMA modelis:
+t <- 1:24
+ARMA.modelis <- arima(A, order=c(0,0,0))
+ARMA.prognoze <- predict(ARMA.modelis, n.ahead=10)
+ARMA.prognoze
+# Laiko eilutes ir jos prognozes grafikas:
+par(mfrow=c(1,1))
+plot(forecast(ARMA.modelis), frame.plot=FALSE)
+# Braižomi diagnostiniai paklaidu grafikai:
+tsdiag(ARMA.modelis)
+# AUTOMATINIS MODELIO PARINKIMAS.
+auto.arima(A ,seasonal=FALSE)
+# NERVU SISTEMA VEIKIANTYS -----------------------------------
+# Sudaroma laiko eilute:
+levels(pard$grupe)
+nvs <- pard[pard$grupe=="Nervu sistema veikiantys", ]
+a15 <- nvs[nvs$metai=="2015",]
+a15 <- aggregate(a15$suma, list(a15$men), sum)
+a16 <- nvs[nvs$metai=="2016",]
+a16 <- aggregate(a16$suma, list(a16$men), sum)
+A <- c(a15[,2], a16[,2])
+A <- ts(A)
+# Pagrindines skaitines charakteristikos:
+data.frame(Minimumas=min(A),Maksimumas=max(A),Vidurkis=mean(A),
+Mediana=median(A),dispersija=var(A))
+# Pradines laiko eilutes grafikas:
+plot(A, type = "l", ylab="Suma", xlab="Menesis",
+frame.plot = FALSE, xaxt="n", ylim=c(0,10000))
+axis(side = 1, at=1:24)
+# Tikrinamas laiko eilutes stacionarumas:
+adf.test(A, alternative = "stationary") # stacionaru
+# Braižomi ACF ir PACF grafikai:
+par(mfrow=c(2,1))
+acf(A, main="Autokoreliacijos grafikas")
+pacf(A, main="Dalines autokoreliacijos grafikas")
+# ARIMA modelis:
+t <- 1:24
+31
+ARMA.modelis <- arima(A, order=c(0,0,0))
+ARMA.prognoze <- predict(ARMA.modelis, n.ahead=10)
+ARMA.prognoze
+# Laiko eilutes ir jos prognozes grafikas:
+par(mfrow=c(1,1))
+plot(forecast(ARMA.modelis), frame.plot=FALSE)
+# Braižomi diagnostiniai paklaidu grafikai:
+tsdiag(ARMA.modelis)
+# AUTOMATINIS MODELIO PARINKIMAS.
+auto.arima(A ,seasonal=FALSE)
+32
